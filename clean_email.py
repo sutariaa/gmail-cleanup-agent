@@ -9,6 +9,7 @@ Usage:
   python clean_email.py --max 50              # cap messages per category (default 100)
   python clean_email.py --yes                 # skip the confirmation prompt
   python clean_email.py --list-only           # show proposals, never trash
+  python clean_email.py --account personal    # use gmail_token_personal.json
 
 Categories: spam, promotional, social, old_read
 """
@@ -63,15 +64,21 @@ def main() -> None:
         action="store_true",
         help="Show proposals and exit. Never trash anything.",
     )
+    parser.add_argument(
+        "--account",
+        help="Account name for multi-Gmail support. Loads gmail_token_<name>.json. "
+             "Run `python setup_gmail.py --account <name>` once to authenticate.",
+    )
     args = parser.parse_args()
 
     categories = args.category or list(email_agent.CATEGORIES.keys())
     max_per_category = max(1, min(args.max, 200))
 
-    print(f"\nRunning Gmail cleanup agent on: {', '.join(categories)}")
+    account_label = f" (account: {args.account})" if args.account else ""
+    print(f"\nRunning Gmail cleanup agent on: {', '.join(categories)}{account_label}")
     print(f"(cap {max_per_category} messages per category)\n")
 
-    proposals = email_agent.run(categories, max_per_category)
+    proposals = email_agent.run(categories, max_per_category, account=args.account)
     reasons = getattr(email_agent.run, "last_reasons", {})
 
     summary = _format_summary(proposals, reasons)
@@ -100,7 +107,7 @@ def main() -> None:
             notifier.send_sms("Gmail cleanup aborted -- nothing trashed.")
             return
 
-    service = email_agent.get_gmail_service()
+    service = email_agent.get_gmail_service(args.account)
     moved_total = 0
     for cat, ids in proposals.items():
         if not ids:

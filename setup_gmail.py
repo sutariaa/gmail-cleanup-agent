@@ -19,6 +19,7 @@ A refreshable token is saved to `gmail_token.json`.
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -30,14 +31,32 @@ import config
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 
+def token_path_for(account: str | None) -> Path:
+    """Path for an account-specific token, or the default token if None."""
+    if account:
+        return Path(f"gmail_token_{account}.json")
+    return Path(config.GMAIL_TOKEN_PATH)
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="One-time OAuth setup for the Gmail cleanup agent.")
+    parser.add_argument(
+        "--account",
+        help="Optional account name to support multiple Gmail accounts. "
+             "Token is saved to gmail_token_<name>.json (e.g. --account personal).",
+    )
+    args = parser.parse_args()
+
     print()
     print("=" * 60)
-    print("  Gmail Cleanup Agent — OAuth Setup")
+    label = "Gmail Cleanup Agent -- OAuth Setup"
+    if args.account:
+        label += f" ({args.account})"
+    print(f"  {label}")
     print("=" * 60)
 
     creds_path = Path(config.GMAIL_CREDENTIALS_PATH)
-    token_path = Path(config.GMAIL_TOKEN_PATH)
+    token_path = token_path_for(args.account)
 
     if not creds_path.exists():
         print(f"\nCould not find OAuth credentials at: {creds_path}")
@@ -62,7 +81,10 @@ def main() -> None:
     profile = service.users().getProfile(userId="me").execute()
     print(f"\nConnected as: {profile.get('emailAddress')}")
     print(f"Total messages: {profile.get('messagesTotal')}")
-    print("\nSetup complete. You can now run:  python clean_email.py")
+    if args.account:
+        print(f"\nSetup complete. Run:  python clean_email.py --account {args.account}")
+    else:
+        print("\nSetup complete. You can now run:  python clean_email.py")
 
 
 if __name__ == "__main__":

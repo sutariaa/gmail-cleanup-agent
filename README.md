@@ -41,9 +41,26 @@ python clean_email.py --list-only           # show proposals, never trash
 python clean_email.py --category spam       # restrict to one category
 python clean_email.py --max 50              # cap messages per category
 python clean_email.py --yes                 # skip the confirm prompt
+python clean_email.py --account personal    # use a specific Gmail account
 ```
 
 Categories: `spam`, `promotional`, `social`, `old_read`.
+
+## Multiple Gmail accounts
+
+You can manage several Gmail accounts side by side without re-authenticating each time. The same `gmail_credentials.json` (the OAuth client identifies the *app*, not the user) is reused; each account just gets its own token file.
+
+```
+# One-time auth per account (browser opens for each):
+python setup_gmail.py --account personal     # signs into account #1
+python setup_gmail.py --account work         # signs into account #2
+
+# Then run cleanup against either:
+python clean_email.py --account personal
+python clean_email.py --account work
+```
+
+Tokens are written to `gmail_token_<name>.json` and are gitignored. Omit `--account` to fall back to the default `gmail_token.json`.
 
 ## Categories
 

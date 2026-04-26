@@ -42,13 +42,20 @@ CATEGORIES: dict[str, str] = {
 
 
 # -- Gmail service -------------------------------------------------------------
-def get_gmail_service():
+def token_path_for(account: str | None) -> Path:
+    """Resolve the token file for an optional account name."""
+    if account:
+        return Path(f"gmail_token_{account}.json")
+    return Path(config.GMAIL_TOKEN_PATH)
+
+
+def get_gmail_service(account: str | None = None):
     """Load the saved OAuth token and build a Gmail service client."""
-    token_path = Path(config.GMAIL_TOKEN_PATH)
+    token_path = token_path_for(account)
     if not token_path.exists():
+        hint = f"python setup_gmail.py --account {account}" if account else "python setup_gmail.py"
         raise RuntimeError(
-            f"Gmail token not found at {token_path}. "
-            "Run `python setup_gmail.py` first."
+            f"Gmail token not found at {token_path}. Run `{hint}` first."
         )
 
     creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
@@ -266,7 +273,11 @@ def _build_system_prompt(categories: list[str], max_per_category: int) -> str:
 MAX_ITERATIONS = 25  # higher than Yelp agent because we may sweep many categories
 
 
-def run(categories: list[str], max_per_category: int) -> dict[str, list[str]]:
+def run(
+    categories: list[str],
+    max_per_category: int,
+    account: str | None = None,
+) -> dict[str, list[str]]:
     """
     Run the cleanup agent. Returns proposals as {category: [message_id, ...]}.
     Does NOT trash anything -- the caller is responsible for confirmation + trashing.
@@ -277,7 +288,7 @@ def run(categories: list[str], max_per_category: int) -> dict[str, list[str]]:
         if cat not in CATEGORIES:
             raise ValueError(f"Unknown category: {cat}. Choose from {list(CATEGORIES)}")
 
-    service = get_gmail_service()
+    service = get_gmail_service(account)
     proposals: dict[str, list[str]] = {cat: [] for cat in categories}
     reasons: dict[str, list[str]] = {cat: [] for cat in categories}
 
