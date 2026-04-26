@@ -1,0 +1,17 @@
+# Secrets -- never commit these
+.env
+gmail_credentials.json
+gmail_token.json
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+
+# Claude Code IDE settings
+.claude/
+
+# macOS
+.DS_Store
