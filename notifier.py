@@ -45,4 +45,4 @@ def send_sms(message: str) -> None:
 
 # ── Quick test ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    send_sms("Test alert from reservation agent! If you got this, Telegram is working.")
+    send_sms("Test alert from Gmail cleanup agent! If you got this, Telegram is working.")

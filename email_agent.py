@@ -14,7 +14,7 @@ the proposal to the user, prompts for confirmation, and only then moves
 messages to Trash via Gmail's batchModify API. Trash is reversible for 30
 days, so this is the safe default.
 
-Model: claude-opus-4-6 (matches the Yelp agent).
+Model: claude-opus-4-6.
 """
 
 from __future__ import annotations
@@ -270,7 +270,7 @@ def _build_system_prompt(categories: list[str], max_per_category: int) -> str:
 
 
 # -- Agent loop ----------------------------------------------------------------
-MAX_ITERATIONS = 25  # higher than Yelp agent because we may sweep many categories
+MAX_ITERATIONS = 25  # high enough to sweep all four categories with room for borderline lookups
 
 
 def run(
