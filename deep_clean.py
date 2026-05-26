@@ -45,7 +45,15 @@ def main() -> None:
 
     targets = ["old_read", "signup_confirmations", "stale_updates"]
     print(f"\n=== Deep clean: {args.account} | categories={targets} | max={args.max} ===\n")
-    proposals = email_agent.run(targets, args.max, account=args.account)
+
+    # Run one category per agent call. Bundling all three into one call
+    # blows past max_tokens once each category has ~200 messages of context
+    # plus a propose_trash batch with 200 IDs.
+    proposals: dict[str, list[str]] = {}
+    for cat in targets:
+        print(f"\n--- surveying category: {cat} ---")
+        result = email_agent.run([cat], args.max, account=args.account)
+        proposals.update(result)
 
     print(f"\n=== Filtering out senders: {EXCLUDED_SENDERS} ===\n")
     service = email_agent.get_gmail_service(args.account)
