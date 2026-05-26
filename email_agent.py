@@ -305,14 +305,21 @@ def run(
 
     finished = False
     for iteration in range(MAX_ITERATIONS):
-        response = client.messages.create(
+        # Streaming is required by the SDK whenever max_tokens is large enough
+        # that the request could exceed the 10-min non-streaming timeout. The
+        # final Message returned by stream.get_final_message() has the same
+        # shape as client.messages.create()'s response.
+        with client.messages.stream(
             model="claude-opus-4-6",
             max_tokens=32000,
             thinking={"type": "adaptive"},
             system=system_prompt,
             tools=TOOLS,
             messages=messages,
-        )
+        ) as stream:
+            for _ in stream:
+                pass
+            response = stream.get_final_message()
 
         for block in response.content:
             if block.type == "text" and block.text.strip():
