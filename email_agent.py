@@ -198,8 +198,10 @@ TOOLS: list[dict[str, Any]] = [
             "properties": {
                 "category": {
                     "type": "string",
-                    "description": "One of: spam, promotional, social, old_read.",
-                    "enum": ["spam", "promotional", "social", "old_read"],
+                    "description": (
+                        "The category being surveyed (as named in the system prompt). "
+                        "Validated at runtime against the categories actually requested."
+                    ),
                 },
                 "message_ids": {
                     "type": "array",
