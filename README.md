@@ -36,6 +36,7 @@ All four scripts respect the same `EXCLUDED_SENDERS` list — Credit Karma mail 
    - Configure the OAuth consent screen (External, add your Gmail addresses as Test users)
    - Create an **OAuth client ID → Desktop app** and download the JSON
    - Save as `gmail_credentials.json` in the repo root
+   - Under **Audience**, click **Publish app** so the status is *In production*. While an app is in *Testing*, Google expires sign-ins after 7 days, which breaks the weekly schedule. (Leaving it unverified is fine for personal use.)
 
 4. **Authenticate** (browser opens; sign in and grant access):
    ```
@@ -104,6 +105,23 @@ After `bulk_trash` has cleared the obvious junk, this runs the agent on three ju
 | `stale_updates` | `category:updates older_than:60d is:read -is:starred -is:important` |
 
 The agent uses its judgment to skip receipts, security notices, interview invites, and similar items worth keeping.
+
+---
+
+## Weekly schedule
+
+`weekly_cleanup.sh` runs `bulk_trash.py` then `deep_clean.py` on every account (`personal`, `work`). `install_schedule.sh` registers it with macOS `launchd` to run **every Sunday at 6 PM**.
+
+```
+./install_schedule.sh                # install (or reinstall after editing the time)
+./install_schedule.sh --uninstall    # remove
+./weekly_cleanup.sh --dry-run        # test the job without trashing anything
+```
+
+- If the Mac is asleep at 6 PM, the job runs as soon as it wakes. A Mac that's shut down skips that week.
+- The run is wrapped in `caffeinate`, so the Mac won't sleep partway through.
+- Each run writes `logs/cleanup-YYYY-MM-DD.log` and shows a macOS notification with the total trashed, or with what went wrong (for example, an expired Gmail sign-in).
+- To change the day or time, edit `WEEKDAY`/`HOUR`/`MINUTE` at the top of `install_schedule.sh` and re-run it.
 
 ---
 
