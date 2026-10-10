@@ -49,11 +49,21 @@ def main() -> None:
     # Run one category per agent call. Bundling all three into one call
     # blows past max_tokens once each category has ~200 messages of context
     # plus a propose_trash batch with 200 IDs.
+    #
+    # Each category is isolated in its own try/except so a transient API
+    # failure on one category doesn't lose the proposals from earlier
+    # successful categories.
     proposals: dict[str, list[str]] = {}
+    failed_cats: list[tuple[str, str]] = []
     for cat in targets:
         print(f"\n--- surveying category: {cat} ---")
-        result = email_agent.run([cat], args.max, account=args.account)
-        proposals.update(result)
+        try:
+            result = email_agent.run([cat], args.max, account=args.account)
+            proposals.update(result)
+        except Exception as exc:
+            print(f"  category '{cat}' failed: {type(exc).__name__}: {exc}")
+            failed_cats.append((cat, str(exc)))
+            proposals[cat] = []  # ensure key exists for downstream
 
     print(f"\n=== Filtering out senders: {EXCLUDED_SENDERS} ===\n")
     service = email_agent.get_gmail_service(args.account)
@@ -86,6 +96,9 @@ def main() -> None:
     total = sum(len(ids) for ids in filtered.values())
     if total == 0:
         print("Nothing to trash after filtering.")
+        if failed_cats:
+            print(f"Categories with errors: {', '.join(c for c, _ in failed_cats)}")
+            sys.exit(1)
         return
 
     print(f"=== Trashing {total} messages ===")
@@ -98,9 +111,17 @@ def main() -> None:
         moved_total += moved
         print(f"  [{cat}] trashed {moved}")
 
-    msg = f"Deep clean ({args.account}): trashed {moved_total}, kept {len(kept_excluded)} Credit Karma. Reversible 30 days."
+    suffix = ""
+    if failed_cats:
+        suffix = f" Categories with errors (not trashed): {', '.join(c for c, _ in failed_cats)}."
+    msg = (
+        f"Deep clean ({args.account}): trashed {moved_total}, "
+        f"kept {len(kept_excluded)} Credit Karma. Reversible 30 days.{suffix}"
+    )
     print(f"\n{msg}")
     notifier.send_sms(msg)
+    if failed_cats:
+        sys.exit(1)  # partial success; let the scheduler report it
 
 
 if __name__ == "__main__":

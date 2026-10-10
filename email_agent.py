@@ -21,10 +21,13 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 from pathlib import Path
 from typing import Any
 
 import anthropic
+import httpx
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -52,15 +55,22 @@ def token_path_for(account: str | None) -> Path:
 def get_gmail_service(account: str | None = None):
     """Load the saved OAuth token and build a Gmail service client."""
     token_path = token_path_for(account)
+    hint = f"python setup_gmail.py --account {account}" if account else "python setup_gmail.py"
     if not token_path.exists():
-        hint = f"python setup_gmail.py --account {account}" if account else "python setup_gmail.py"
         raise RuntimeError(
             f"Gmail token not found at {token_path}. Run `{hint}` first."
         )
 
     creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
     if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except RefreshError as exc:
+            # Tokens from an OAuth app in "Testing" status expire after 7 days
+            raise RuntimeError(
+                f"Gmail token at {token_path} has expired or been revoked. "
+                f"Run `{hint}` to sign in again."
+            ) from exc
         token_path.write_text(creds.to_json())
 
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
@@ -311,17 +321,36 @@ def run(
         # that the request could exceed the 10-min non-streaming timeout. The
         # final Message returned by stream.get_final_message() has the same
         # shape as client.messages.create()'s response.
-        with client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=32000,
-            thinking={"type": "adaptive"},
-            system=system_prompt,
-            tools=TOOLS,
-            messages=messages,
-        ) as stream:
-            for _ in stream:
-                pass
-            response = stream.get_final_message()
+        #
+        # Retry up to 3 times on transient network errors (connection reset,
+        # timeout, remote-protocol errors). These show up mid-stream during
+        # long adaptive-thinking steps and aren't recoverable mid-response.
+        response = None
+        last_err: Exception | None = None
+        for attempt in range(3):
+            try:
+                with client.messages.stream(
+                    model="claude-opus-4-6",
+                    max_tokens=32000,
+                    thinking={"type": "adaptive"},
+                    system=system_prompt,
+                    tools=TOOLS,
+                    messages=messages,
+                ) as stream:
+                    for _ in stream:
+                        pass
+                    response = stream.get_final_message()
+                break
+            except (httpx.ReadError, httpx.ConnectError, httpx.RemoteProtocolError,
+                    httpx.TimeoutException, anthropic.APIConnectionError,
+                    anthropic.APITimeoutError) as exc:
+                last_err = exc
+                wait = 2 ** attempt
+                print(f"  Network error ({type(exc).__name__}: {exc}); retrying in {wait}s "
+                      f"(attempt {attempt + 1}/3)...", flush=True)
+                time.sleep(wait)
+        if response is None:
+            raise RuntimeError(f"Anthropic API failed after 3 attempts: {last_err}")
 
         for block in response.content:
             if block.type == "text" and block.text.strip():
