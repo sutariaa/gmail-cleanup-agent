@@ -14,7 +14,7 @@ the proposal to the user, prompts for confirmation, and only then moves
 messages to Trash via Gmail's batchModify API. Trash is reversible for 30
 days, so this is the safe default.
 
-Model: claude-opus-4-6.
+Model: claude-haiku-5-5 at low effort -- the cheapest option.
 """
 
 from __future__ import annotations
@@ -284,6 +284,11 @@ def _build_system_prompt(categories: list[str], max_per_category: int) -> str:
 # -- Agent loop ----------------------------------------------------------------
 MAX_ITERATIONS = 25  # high enough to sweep all four categories with room for borderline lookups
 
+# Cheapest model. Haiku 5.5 bills $0.10/$0.50 per MTok while a prompt stays at
+# or under 100K tokens ($0.50/$2.50 above), so keep per-category caps <= 200.
+MODEL = "claude-haiku-5-5"
+EFFORT = "low"  # raise to "medium" if proposals get sloppy
+
 
 def run(
     categories: list[str],
@@ -316,6 +321,7 @@ def run(
     }]
 
     finished = False
+    tokens = {"input": 0, "cache_write": 0, "cache_read": 0, "output": 0}
     for iteration in range(MAX_ITERATIONS):
         # Streaming is required by the SDK whenever max_tokens is large enough
         # that the request could exceed the 10-min non-streaming timeout. The
@@ -330,9 +336,14 @@ def run(
         for attempt in range(3):
             try:
                 with client.messages.stream(
-                    model="claude-opus-4-6",
+                    model=MODEL,
                     max_tokens=32000,
                     thinking={"type": "adaptive"},
+                    output_config={"effort": EFFORT},
+                    # Every iteration resends the whole conversation (including
+                    # ~200 messages of search results); caching bills the
+                    # repeated prefix at 0.1x
+                    cache_control={"type": "ephemeral"},
                     system=system_prompt,
                     tools=TOOLS,
                     messages=messages,
@@ -351,6 +362,12 @@ def run(
                 time.sleep(wait)
         if response is None:
             raise RuntimeError(f"Anthropic API failed after 3 attempts: {last_err}")
+
+        usage = response.usage
+        tokens["input"] += usage.input_tokens
+        tokens["cache_write"] += usage.cache_creation_input_tokens or 0
+        tokens["cache_read"] += usage.cache_read_input_tokens or 0
+        tokens["output"] += usage.output_tokens
 
         for block in response.content:
             if block.type == "text" and block.text.strip():
@@ -387,6 +404,8 @@ def run(
 
     if not finished:
         print(f"  (agent stopped after {iteration + 1} iterations without calling finish)")
+    print(f"  Tokens ({MODEL}): {tokens['input']} input, {tokens['cache_write']} cache write, "
+          f"{tokens['cache_read']} cache read, {tokens['output']} output")
 
     # Attach reasons to result via a side dict on the function (caller can read)
     run.last_reasons = reasons  # type: ignore[attr-defined]
