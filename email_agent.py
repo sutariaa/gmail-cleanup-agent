@@ -33,6 +33,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 import config
+import rules
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
@@ -278,6 +279,14 @@ def _build_system_prompt(categories: list[str], max_per_category: int) -> str:
         "  2. Group the results into propose_trash calls (one or more per category).",
         "  3. When all categories are surveyed, call finish with a brief summary.",
     ])
+    keep = rules.keep_rules()
+    if keep:
+        lines.extend([
+            "",
+            "The user has told you these are IMPORTANT. Never propose a message that",
+            "matches any of these Gmail query fragments (treat them as hard rules):",
+        ])
+        lines.extend(f"  - {k}" for k in keep)
     return "\n".join(lines)
 
 

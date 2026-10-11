@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+import decisions
 import email_agent
 import notifier
 
@@ -81,10 +82,13 @@ def main() -> None:
             ).execute()
             headers = {h["name"]: h["value"] for h in meta.get("payload", {}).get("headers", [])}
             sender = headers.get("From", "")
+            subject = headers.get("Subject", "")[:70]
             if any(ex in sender.lower() for ex in EXCLUDED_SENDERS):
-                kept_excluded.append((cat, sender, headers.get("Subject", "")[:70]))
+                kept_excluded.append((cat, sender, subject))
+                decisions.record(args.account, cat, "kept", sender, subject)
             else:
                 keep.append(mid)
+                decisions.record(args.account, cat, "trashed", sender, subject)
         filtered[cat] = keep
 
     if kept_excluded:

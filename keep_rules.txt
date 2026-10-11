@@ -1,0 +1,3 @@
+# Mail matching any line here is KEPT: never trashed by the agent or bulk pass.
+# One Gmail query fragment per line. Credit Karma is always kept (hard rule in code too).
+from:creditkarma.com
