@@ -1,0 +1,4 @@
+# Mail matching any line here is TRASHED on every run, with no AI involved.
+# One Gmail query fragment per line. Examples (uncomment to use):
+# from:noreply@marketing.example.com
+# subject:"you've been selected"

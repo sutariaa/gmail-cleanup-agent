@@ -20,6 +20,7 @@ import sys
 
 import email_agent
 import notifier
+import rules
 
 # Each entry: (label, gmail query)
 QUERIES: list[tuple[str, str]] = [
@@ -28,6 +29,10 @@ QUERIES: list[tuple[str, str]] = [
     ("promotions",  "category:promotions -from:creditkarma.com -from:linkedin.com"),
     ("social",      "category:social -from:creditkarma.com -from:linkedin.com"),
 ]
+# User-defined rules from trash_rules.txt, and keep_rules.txt as exclusions on every query
+QUERIES += [(f"rule {i + 1}", rule) for i, rule in enumerate(rules.trash_rules())]
+_KEEP = " ".join(f"-({k})" for k in rules.keep_rules())
+QUERIES = [(label, f"{q} {_KEEP}".strip()) for label, q in QUERIES]
 
 
 def page_all_ids(service, query: str) -> list[str]:
