@@ -1,3 +1,4 @@
-# Mail matching any line here gets STARRED on every run, so confirmations are easy to spot.
-# One Gmail query per line. Starred mail is never trashed by the bulk pass.
-subject:(ticket OR tickets OR confirmation OR "order confirmation" OR receipt OR booking OR reservation OR itinerary OR invoice OR "payment received" OR "your order")
+# Star only REAL transactions: a confirmation that also carries an amount paid,
+# a date of birth, a flight, or an event ticket. Speculative promos are excluded.
+# One Gmail query per line. Starring never deletes anything.
+(subject:(confirmation OR ticket OR tickets OR booking OR reservation OR itinerary OR receipt OR "order confirmation" OR "confirmation number" OR "confirmation code") OR "confirmation number" OR "confirmation code") (total OR paid OR charged OR "amount" OR "date of birth" OR DOB OR flight OR seat OR "admit one" OR "event date") -category:promotions
