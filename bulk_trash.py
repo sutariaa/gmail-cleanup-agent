@@ -32,7 +32,7 @@ QUERIES: list[tuple[str, str]] = [
 # User-defined rules from trash_rules.txt, and keep_rules.txt as exclusions on every query
 QUERIES += [(f"rule {i + 1}", rule) for i, rule in enumerate(rules.trash_rules())]
 _KEEP = " ".join(f"-({k})" for k in rules.keep_rules())
-QUERIES = [(label, f"{q} {_KEEP}".strip()) for label, q in QUERIES]
+QUERIES = [(label, f"{q} {_KEEP} -is:starred".strip()) for label, q in QUERIES]
 
 
 def page_all_ids(service, query: str) -> list[str]:
@@ -50,6 +50,22 @@ def page_all_ids(service, query: str) -> list[str]:
     return ids
 
 
+def star_matches(service, args_dry_run: bool) -> None:
+    """Star confirmations/tickets from star_rules.txt. Never trashes anything."""
+    for i, query in enumerate(rules.star_rules()):
+        full = f"{query} -is:starred"
+        ids = page_all_ids(service, full)
+        print(f"\n[star {i + 1}]  query: {full}")
+        print(f"  found {len(ids)} to star")
+        if ids and not args_dry_run:
+            for j in range(0, len(ids), 1000):
+                service.users().messages().batchModify(
+                    userId="me",
+                    body={"ids": ids[j : j + 1000], "addLabelIds": ["STARRED"]},
+                ).execute()
+            print(f"  starred {len(ids)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--account", required=True)
@@ -60,6 +76,8 @@ def main() -> None:
     print(f"\n=== bulk trash on account '{args.account}' ===")
     if args.dry_run:
         print("(DRY RUN -- nothing will be trashed)\n")
+
+    star_matches(service, args.dry_run)
 
     grand_trashed = 0
     grand_found = 0

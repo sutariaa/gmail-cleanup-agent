@@ -1,0 +1,3 @@
+# Mail matching any line here gets STARRED on every run, so confirmations are easy to spot.
+# One Gmail query per line. Starred mail is never trashed by the bulk pass.
+subject:(ticket OR tickets OR confirmation OR "order confirmation" OR receipt OR booking OR reservation OR itinerary OR invoice OR "payment received" OR "your order")
