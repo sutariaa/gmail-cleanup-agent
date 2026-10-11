@@ -11,6 +11,9 @@ Plain-text rule files you edit to teach the cleanup what matters.
   trash_rules.txt  Gmail query fragments trashed on every run with no AI,
                    e.g.  from:noreply@marketing.example.com
 
+  star_rules.txt   Gmail query fragments that get STARRED every run (never trashed),
+                   e.g. confirmations, tickets, receipts.
+
 Lines starting with # and blank lines are ignored.
 """
 
@@ -39,3 +42,7 @@ def keep_rules() -> list[str]:
 
 def trash_rules() -> list[str]:
     return _read("trash_rules.txt")
+
+
+def star_rules() -> list[str]:
+    return _read("star_rules.txt")
