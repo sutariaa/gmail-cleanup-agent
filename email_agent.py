@@ -153,10 +153,18 @@ def batch_trash(service, message_ids: list[str]) -> int:
     moved = 0
     for i in range(0, len(message_ids), 1000):
         batch = message_ids[i : i + 1000]
-        service.users().messages().batchModify(
-            userId="me",
-            body={"ids": batch, "addLabelIds": ["TRASH"], "removeLabelIds": ["INBOX"]},
-        ).execute()
+        for attempt in range(3):  # Gmail sometimes times out on large batches
+            try:
+                service.users().messages().batchModify(
+                    userId="me",
+                    body={"ids": batch, "addLabelIds": ["TRASH"], "removeLabelIds": ["INBOX"]},
+                ).execute()
+                break
+            except (TimeoutError, OSError) as exc:
+                if attempt == 2:
+                    raise
+                print(f"  Gmail timeout ({exc}); retrying batch in {2 ** attempt * 5}s...", flush=True)
+                time.sleep(2 ** attempt * 5)
         moved += len(batch)
     return moved
 
