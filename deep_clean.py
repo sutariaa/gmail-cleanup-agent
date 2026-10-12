@@ -17,6 +17,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from googleapiclient.errors import HttpError
+
 import decisions
 import email_agent
 import notifier
@@ -74,12 +76,17 @@ def main() -> None:
     for cat, ids in proposals.items():
         keep: list[str] = []
         for mid in ids:
-            meta = service.users().messages().get(
-                userId="me",
-                id=mid,
-                format="metadata",
-                metadataHeaders=["From", "Subject"],
-            ).execute()
+            try:
+                meta = service.users().messages().get(
+                    userId="me",
+                    id=mid,
+                    format="metadata",
+                    metadataHeaders=["From", "Subject"],
+                ).execute()
+            except HttpError as exc:
+                if exc.resp.status == 404:  # already gone (trashed or deleted) -- skip
+                    continue
+                raise
             headers = {h["name"]: h["value"] for h in meta.get("payload", {}).get("headers", [])}
             sender = headers.get("From", "")
             subject = headers.get("Subject", "")[:70]
