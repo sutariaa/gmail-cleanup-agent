@@ -17,6 +17,7 @@ import base64
 import html
 import json
 import re
+import subprocess
 from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
@@ -126,7 +127,7 @@ def draft_reply(client: anthropic.Anthropic, item: dict) -> str:
     return "".join(b.text for b in response.content if b.type == "text").strip()
 
 
-def create_draft(service, item: dict, body: str) -> str:
+def _reply_message(item: dict, body: str) -> dict:
     h = item["headers"]
     msg = EmailMessage()
     msg["To"] = h.get("From", "")
@@ -138,16 +139,35 @@ def create_draft(service, item: dict, body: str) -> str:
     msg.set_content(text)
     msg.add_alternative(html_part, subtype="html")
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    return {"raw": raw, "threadId": item["thread_id"]}
+
+
+def create_draft(service, item: dict, body: str) -> str:
     draft = service.users().drafts().create(
-        userId="me", body={"message": {"raw": raw, "threadId": item["thread_id"]}}
+        userId="me", body={"message": _reply_message(item, body)}
     ).execute()
     return draft["id"]
+
+
+def send_reply(service, item: dict, body: str) -> str:
+    sent = service.users().messages().send(userId="me", body=_reply_message(item, body)).execute()
+    return sent["id"]
+
+
+def notify(text: str) -> None:
+    """macOS notification so held emails don't sit unnoticed."""
+    subprocess.run(
+        ["osascript", "-e", f'display notification "{text}" with title "Recruiter reply"'],
+        check=False,
+    )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--account", required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--send", action="store_true",
+                        help="Send clean replies instead of saving drafts. Questions are never sent.")
     args = parser.parse_args()
 
     service = email_agent.get_gmail_service(args.account)
@@ -177,12 +197,18 @@ def main() -> None:
         row = {"time": datetime.now().isoformat(timespec="seconds"), "account": args.account,
                "thread": item["thread_id"], "from": h.get("From", ""),
                "subject": h.get("Subject", ""), "needs_review": review}
-        if not args.dry_run and not review:
-            row["draft_id"] = create_draft(service, item, body)
+        if review:
+            notify(f"Recruiter email needs your answer: {h.get('Subject', '')[:60]}")
+        elif not args.dry_run:
+            if args.send:
+                row["sent_id"] = send_reply(service, item, body)
+            else:
+                row["draft_id"] = create_draft(service, item, body)
         with LOG.open("a") as f:
             f.write(json.dumps(row) + "\n")
 
-    print("\nDone. Drafts are in Gmail's Drafts folder. Nothing was sent.")
+    print("\nDone. " + ("Clean replies were sent; questions were held for you."
+                       if args.send else "Drafts are in Gmail's Drafts folder. Nothing was sent."))
 
 
 if __name__ == "__main__":
