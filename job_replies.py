@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import html
 import json
 import re
 from datetime import datetime
@@ -41,9 +42,23 @@ AUTOMATED = re.compile(
 
 STANDARD_REPLY = (
     "I'm not looking at the moment, but I expect to start looking again in Q1 or Q2 of 2027, "
-    "so let's reconnect then. Happy to stay connected in the meantime; you can find me on "
-    "LinkedIn: www.linkedin.com/in/sutariaarjun"
+    "so let's reconnect then. Happy to stay connected in the meantime."
 )
+
+LINKEDIN_URL = "https://www.linkedin.com/in/sutariaarjun"
+LINKEDIN_TEXT = "www.linkedin.com/in/sutariaarjun"
+
+
+def _email_parts(body: str) -> tuple[str, str]:
+    """Plain-text and HTML versions. The LinkedIn link is a real anchor, so Gmail
+    never rewrites it into a google.com/url redirect."""
+    text = f"{body}\n\nLinkedIn: {LINKEDIN_TEXT}"
+    html_body = html.escape(body).replace("\n", "<br>")
+    html_part = (
+        f'<div dir="auto">{html_body}<br><br>LinkedIn: '
+        f'<a href="{LINKEDIN_URL}">{LINKEDIN_TEXT}</a></div>'
+    )
+    return text, html_part
 
 SYSTEM = f"""You write email replies for Arjun Sutaria (Solutions Engineer) to recruiters and job-opportunity emails.
 
@@ -53,7 +68,7 @@ Close with a brief line saying he's happy to stay connected, then his LinkedIn o
 
 Rules:
 - Address the sender by first name. Thank them specifically for what they wrote (the company, role or context). Warm and professional, not salesy.
-- Keep it under 90 words. Plain text, no markdown, no bullet points, no subject line.
+- Keep it under 75 words. Plain text, no markdown, no bullet points, no subject line.
 - Sign off as "Arjun".
 - NEVER answer questions about work authorization, visa or sponsorship, salary or compensation, location or relocation, availability beyond Q1/Q2 2027, references, or personal details. Don't invent facts.
 - If the email asks direct questions beyond "are you interested", start your output with a line "NEEDS_REVIEW:" followed by one sentence naming the questions Arjun must answer himself, then the draft.
@@ -119,7 +134,9 @@ def create_draft(service, item: dict, body: str) -> str:
     msg["Subject"] = subject if subject.lower().startswith("re:") else "Re: " + subject
     msg["In-Reply-To"] = h.get("Message-ID", "")
     msg["References"] = h.get("Message-ID", "")
-    msg.set_content(body)
+    text, html_part = _email_parts(body)
+    msg.set_content(text)
+    msg.add_alternative(html_part, subtype="html")
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
     draft = service.users().drafts().create(
         userId="me", body={"message": {"raw": raw, "threadId": item["thread_id"]}}
@@ -142,6 +159,9 @@ def main() -> None:
     for item in items:
         h = item["headers"]
         body = draft_reply(client, item)
+        if re.search(r"https?://|www\.|linkedin\.com", body, re.I):
+            body = re.sub(r"https?://\S+|www\.\S+|\S*linkedin\.com\S*", "", body, flags=re.I)
+            body = re.sub(r"\n{3,}", "\n\n", body).strip()
         if body.startswith("SKIP:"):
             print(f"Skipped {h.get('From', '')}: {body[5:].strip()}")
             continue
