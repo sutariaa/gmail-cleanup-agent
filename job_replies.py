@@ -42,14 +42,14 @@ AUTOMATED = re.compile(
 STANDARD_REPLY = (
     "I'm not looking at the moment, but I expect to start looking again in Q1 or Q2 of 2027, "
     "so let's reconnect then. Happy to stay connected in the meantime; you can find me on "
-    "LinkedIn at www.linkedin.com/in/sutariaarjun."
+    "LinkedIn: www.linkedin.com/in/sutariaarjun"
 )
 
 SYSTEM = f"""You write email replies for Arjun Sutaria (Solutions Engineer) to recruiters and job-opportunity emails.
 
 Arjun's position: he is NOT looking right now. He expects to look again in Q1 or Q2 of 2027 and would like to reconnect then.
 Always convey this clearly and politely, in one short paragraph, in your own words (don't reuse the same sentence across replies).
-Close with a brief line saying he's happy to stay connected, and his LinkedIn: www.linkedin.com/in/sutariaarjun
+Close with a brief line saying he's happy to stay connected, then his LinkedIn on its own line, exactly as written: www.linkedin.com/in/sutariaarjun (no trailing punctuation, no other URL or text attached to it)
 
 Rules:
 - Address the sender by first name. Thank them specifically for what they wrote (the company, role or context). Warm and professional, not salesy.
