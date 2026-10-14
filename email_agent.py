@@ -35,7 +35,10 @@ from googleapiclient.discovery import build
 import config
 import rules
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.compose",  # reply drafts (job_replies.py)
+]
 
 CATEGORIES: dict[str, str] = {
     "spam": "in:spam",

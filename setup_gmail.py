@@ -28,7 +28,10 @@ from googleapiclient.discovery import build
 
 import config
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.compose",  # reply drafts (job_replies.py)
+]
 
 
 def token_path_for(account: str | None) -> Path:
