@@ -38,6 +38,7 @@ import rules
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.compose",  # reply drafts (job_replies.py)
+    "https://www.googleapis.com/auth/gmail.send",  # send replies (job_replies.py --send)
 ]
 
 CATEGORIES: dict[str, str] = {
